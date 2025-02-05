@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>점심 메뉴 추천</title>
+  </head>
+  <body>
+    <header>
+      <button id="resetButton">저장된 데이터 리셋</button>
+    </header>
+    <form id="controller">
+      <label>
+        모델 :
+        <select name="modelOption">
+          <option value="1">gemini-1.5-flash</option>
+          <option value="2">deepseek-r1</option>
+        </select>
+      </label>
+      <textarea name="textData"></textarea>
+      <button>등록</button>
+    </form>
+    <div id="container"></div>
+    <script>
+      const _ = () => {
+        const container = document.querySelector("#container");
+        const form = document.querySelector("#controller");
+        const resetButton = document.querySelector("#resetButton");
+        resetButton.addEventListener("click", () => (data.length = 0));
+        const data = new Proxy([], {
+          set(target, property, value) {
+            target[property] = value;
+            updateContainer();
+            updateStorage(target);
+            return true;
+          },
+        });
+        function onMounted() {
+          data.push(...(JSON.parse(localStorage.getItem("myData")) ?? []));
+        }
+        onMounted();
+
+        function updateContainer() {
+          container.innerHTML = "";
+          for (const d of data) {
+            const tmp = document.createElement("div");
+            tmp.textContent = d.text;
+            const deleteButton = document.createElement("button");
+            deleteButton.textContent = "삭제";
+            deleteButton.addEventListener("click", () => {
+              const fillterd = data.filter((value) => value.id !== d.id);
+              data.length = 0;
+              data.push(...fillterd);
+            });
+            if (d.reply) {
+              const box = document.createElement("div");
+              const reply = document.createElement("code");
+              box.appendChild(reply);
+              box.style.padding = "12px";
+              box.style.margin = "4px";
+              box.style.backgroundColor = "beige";
+              box.style.border = "1px solid black";
+              reply.textContent = d.reply;
+              tmp.appendChild(box);
+            }
+            tmp.appendChild(deleteButton);
+            container.appendChild(tmp);
+          }
+        }
+
+        function updateStorage(target) {
+          localStorage.setItem("myData", JSON.stringify(target));
+        }
+        async function handleForm(event) {
+          event.preventDefault();
+          const formData = new FormData(form);
+          const text = formData.get("textData");
+          let reply;
+          switch (formData.get("modelOption")) {
+            case "1":
+              reply = `👬 Gemini : ${await makeReply(text)}`;
+              break;
+            case "2":
+              reply = `👀 DeepSeek : ${await makeReply2(text)}`;
+              break;
+            default:
+              alert("비정상적인 접근!");
+              throw new Error("알 수 없는 에러!");
+              break;
+          }
+          const displayData = {
+            id: Date.now(),
+            text,
+            reply,
+          };
+          data.push(displayData);
+        }
+        async function makeReply(text) {
+          const url = "https://spotted-famous-seaplane.glitch.me/1";
+          const response = await fetch(url, {
+            method: "POST",
+            // body: JSON.stringify({
+            //   contents: [
+            //     {
+            //       parts: [
+            //         {
+            //           text: `너는 20년 경력의 메뉴 추천 전문가야. {${text}}의 메시지를 바탕으로, 점심 메뉴를 추천해주고, 50자 이내에 평문으로 작성해줘.`,
+            //         },
+            //       ],
+            //     },
+            //   ],
+            // }),
+            body: JSON.stringify({
+              text: `너는 20년 경력의 메뉴 추천 전문가야. {${text}}의 메시지를 바탕으로, 점심 메뉴를 추천해주고, 50자 이내에 평문으로 작성해줘.`,
+            }),
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+          const json = await response.json();
+          //   return json.candidates[0].content.parts[0].text;
+          return json.reply;
+        }
+        async function makeReply2(
+          content,
+          model = "deepseek-r1-distill-llama-70b"
+        ) {
+          //   const GROQ_API_KEY =
+          //     "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";
+          //   const url = "https://api.groq.com/openai/v1/chat/completions";
+          const url = "https://spotted-famous-seaplane.glitch.me/2";
+          const response = await fetch(url, {
+            method: "POST",
+            // body: JSON.stringify({
+            //   messages: [
+            //     {
+            //       role: "user",
+            //       content: `너는 20년 경력의 메뉴 추천 전문가야. {${content}}의 메시지를 바탕으로, 점심 메뉴를 추천해주고, 50자 이내에 평문으로 작성해줘. 결과는 한글로 작성해줘.`,
+            //     },
+            //   ],
+            //   model,
+            // }),
+            body: JSON.stringify({
+              text: `너는 20년 경력의 메뉴 추천 전문가야. {${content}}의 메시지를 바탕으로, 점심 메뉴를 추천해주고, 50자 이내에 평문으로 작성해줘. 결과는 한글로 작성해줘.`,
+            }),
+            headers: {
+              //   Authorization: `Bearer ${GROQ_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+          });
+          const json = await response.json();
+          //   return json.choices[0].message.content.split("</think>")[1].trim();
+          return json.reply;
+        }
+        form.addEventListener("submit", handleForm);
+      };
+      window.onload = _;
+      // 1. 함수로 감싸서 다른 함수나 다른 변수 등에 외부에서 접근하지 못하게 한다
+      // 2. window.onload (BOM) -> html, css 것들이 모두 로드된 다음에 js를 실행하게 한다.
+    </script>
+  </body>
+</html>
